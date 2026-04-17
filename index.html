@@ -5,7 +5,6 @@
 <title>Trade Tracker Pro</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
 
 <style>
 body { background:#0e0e0e; color:#e0e0e0; font-family:'Cascadia Code', monospace; margin:0;}
@@ -18,7 +17,7 @@ body { background:#0e0e0e; color:#e0e0e0; font-family:'Cascadia Code', monospace
 .form-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
 input { font-size:25px; padding:10px; border-radius:6px; border:1px solid #333; background:#111; color:white;}
 .add-btn { grid-column:span 4; background:#4CAF50; border:none; padding:12px; cursor:pointer; color:white;}
-.del-btn { background:#d63636; border:none; padding:12px; cursor:pointer; color:white;}
+.del-btn { grid-column:span 4; background:#d63636; border:none; padding:12px; cursor:pointer; color:white;}
 .balance-btn { grid-column:span 4; background:#2196F3; border:none; padding:12px; cursor:pointer; color:white;}
 canvas { height:400px !important;}
 
@@ -101,6 +100,11 @@ import {
   onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
+/* 🔥 FIX: REGISTER ZOOM PLUGIN */
+import zoomPlugin from "https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/+esm";
+Chart.register(zoomPlugin);
+
+// 🔥 INIT
 const app = initializeApp({
   apiKey:"AIzaSyD2C4DK5VZOJQ6AtmiKmBR9jm7iFS84LN4",
   authDomain:"ethanstradinglog-9d3b8.firebaseapp.com",
@@ -113,15 +117,20 @@ const auth = getAuth(app);
 let trades=[];
 let chart;
 
+// 🔥 LOGIN
 window.login = async ()=>{
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
 };
 
+// 🔥 WATCH USER
 onAuthStateChanged(auth, (user) => {
-    if (user) loadTrades();
+    if (user) {
+        loadTrades();
+    }
 });
 
+// NAV
 window.switchPage=(p,btn)=>{
 document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
 document.getElementById(p).classList.add("active");
@@ -129,6 +138,7 @@ document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active")
 btn.classList.add("active");
 };
 
+// LOAD
 async function loadTrades(){
 const snap = await getDocs(collection(db,"trades"));
 trades=[];
@@ -138,6 +148,7 @@ let t=d.data(); t.id=d.id; trades.push(t);
 render();
 }
 
+// ADD TRADE
 window.addTrade=async()=>{
 let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
 let pnl=(+exit.value - +entry.value) * +qty.value;
@@ -147,11 +158,14 @@ type:"trade",
 pnl,
 date:ts
 });
+
 loadTrades();
 };
 
+// ADD BALANCE
 window.addBalance=async()=>{
 let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
+
 let amt=+balanceAmount.value;
 if(!amt) return;
 
@@ -160,16 +174,19 @@ type:"balance",
 pnl:amt,
 date:ts
 });
+
 balanceAmount.value="";
 loadTrades();
 };
 
+// DELETE
 window.deleteTrade=async(id)=>{
 if(!confirm("Are you sure you want to delete this entry?")) return;
 await deleteDoc(doc(db,"trades",id));
 loadTrades();
 };
 
+// TABLE
 function render(){
 tradeTable.innerHTML="";
 trades.sort((a,b)=>a.date-b.date).forEach(t=>{
@@ -185,68 +202,41 @@ tradeTable.innerHTML+=`
 drawChart();
 }
 
-// 🔥 FINAL FIXED CHART
+// 🔥 CHART (RESTORED WORKING VERSION)
 function drawChart(){
 
 if(chart) chart.destroy();
 
-let mode = document.getElementById("timeframe").value;
-let sorted = [...trades].sort((a,b)=>a.date-b.date);
+let labels=[],values=[],eq=0;
 
-let data=[];
-let equity=0;
-
-sorted.forEach(t=>{
-equity += t.pnl;
-data.push({x: t.date, y: equity});
+trades.sort((a,b)=>a.date-b.date).forEach((t,i)=>{
+eq+=t.pnl;
+labels.push(i);
+values.push(eq);
 });
-
-// simple aggregation
-if(mode !== "trade"){
-let grouped={};
-
-data.forEach(p=>{
-let d=new Date(p.x);
-let key;
-
-if(mode==="hour") key=d.toISOString().slice(0,13);
-if(mode==="day") key=d.toISOString().slice(0,10);
-if(mode==="week"){
-d.setDate(d.getDate()-d.getDay());
-key=d.toISOString().slice(0,10);
-}
-if(mode==="month") key=d.getFullYear()+"-"+(d.getMonth()+1);
-
-grouped[key] = p.y;
-});
-
-data = Object.keys(grouped).map(k=>{
-return {x: new Date(k), y: grouped[k]};
-});
-}
 
 chart=new Chart(document.getElementById("chart"),{
 type:"line",
 data:{
+labels:labels,
 datasets:[{
-data:data,
-borderColor:"#4CAF50",
-fill:false
+label:"Equity",
+data:values,
+borderColor:"#4CAF50"
 }]
 },
 options:{
-parsing:false,
-scales:{
-x:{
-type:"time",
-time:{unit: mode==="trade" ? "day" : mode}
-},
-y:{}
-},
+interaction:{mode:'index',intersect:false},
 plugins:{
+legend:{display:false},
+tooltip:{enabled:true},
 zoom:{
-zoom:{wheel:{enabled:true}, pinch:{enabled:true}, mode:'x'},
-pan:{enabled:true, mode:'x'}
+pan:{enabled:true, mode:'x'},
+zoom:{
+wheel:{enabled:true},
+pinch:{enabled:true},
+mode:'x'
+}
 }
 }
 }
