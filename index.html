@@ -95,6 +95,37 @@ canvas { height:400px !important;}
 
 <script type="module">
 
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } 
+from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+import zoomPlugin from "https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/+esm";
+Chart.register(zoomPlugin);
+
+// 🔥 INIT
+const app = initializeApp({
+  apiKey:"AIzaSyD2C4DK5VZOJQ6AtmiKmBR9jm7iFS84LN4",
+  authDomain:"ethanstradinglog-9d3b8.firebaseapp.com",
+  projectId:"ethanstradinglog-9d3b8"
+});
+
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const winRate = document.getElementById("winRate");
+const sharpe = document.getElementById("sharpe");
+const returnEl = document.getElementById("return");
+
+let trades = [];
+let chart;
+
 function calculateMetrics(){
 
     let tradeOnly = trades.filter(t => t.type === "trade");
@@ -160,37 +191,6 @@ function calculateMetrics(){
 
     returnEl.innerText = `1Y Return: ${returnPct.toFixed(2)}%`;
 }
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } 
-from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  onAuthStateChanged 
-} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-
-import zoomPlugin from "https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/+esm";
-Chart.register(zoomPlugin);
-
-// 🔥 INIT
-const app = initializeApp({
-  apiKey:"AIzaSyD2C4DK5VZOJQ6AtmiKmBR9jm7iFS84LN4",
-  authDomain:"ethanstradinglog-9d3b8.firebaseapp.com",
-  projectId:"ethanstradinglog-9d3b8"
-});
-
-const db = getFirestore(app);
-const auth = getAuth(app);
-
-const winRate = document.getElementById("winRate");
-const sharpe = document.getElementById("sharpe");
-const returnEl = document.getElementById("return");
-
-let trades = [];
-let chart;
 
 // 🔥 LOGIN
 window.login = async () => {
