@@ -198,6 +198,8 @@ drawChart();
 
 // 🔥 FINAL FIXED CHART
 function drawChart(){
+console.log("TIMEFRAME:", document.getElementById("timeframe").value);
+console.log("TRADES:", trades.length, trades);
 
 if(chart) chart.destroy();
 
