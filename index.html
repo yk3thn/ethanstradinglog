@@ -195,9 +195,22 @@ function render(){
     tradeTable.innerHTML = "";
 
     trades.sort((a,b)=>a.date-b.date).forEach(t=>{
-        let label = t.type==="balance"
-    ? "💰 Balance"
-    : `${t.ticker || "Trade"} @ ${t.entry ?? "-"}`;
+        let label;
+
+if (t.type === "balance") {
+    label = "💰 Balance";
+} else {
+    let percent = t.entry
+        ? ((t.exit - t.entry) / t.entry) * 100
+        : 0;
+
+    let color = percent >= 0 ? "#4CAF50" : "#ff5252";
+
+    label = `${t.ticker || "Trade"} 
+    <span style="color:${color}; font-weight:bold;">
+        (${percent.toFixed(2)}%)
+    </span>`;
+}
         tradeTable.innerHTML += `
         <tr>
             <td>${label}</td>
