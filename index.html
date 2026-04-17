@@ -191,7 +191,7 @@ tradeTable.innerHTML+=`
 <td>${label}</td>
 <td>$${t.pnl.toFixed(2)}</td>
 <td>${new Date(t.date).toLocaleString()}</td>
-<td><button onclick="deleteTrade('${t.id}')" class="add-btn">DELETE</button></td>
+<td><button onclick="deleteTrade('${t.id}')" class="del-btn">DELETE</button></td>
 </tr>`;
 });
 drawChart();
