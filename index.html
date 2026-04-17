@@ -231,20 +231,29 @@ else{
         let d = new Date(t.date);
         let key;
 
-        if(mode==="hour") key = d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate()+" "+d.getHours();
-        if(mode==="day") key = d.toDateString();
-        if(mode==="week"){
-            d.setDate(d.getDate()-d.getDay());
-            key = d.toDateString();
+        // 🔥 CLEAN GROUPING (THIS is what you were missing)
+        if(mode==="day"){
+            key = d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate();
         }
-        if(mode==="month") key = d.getFullYear()+"-"+d.getMonth();
+        else if(mode==="week"){
+            let start = new Date(d);
+            start.setDate(d.getDate() - d.getDay());
+            key = start.getFullYear() + "-" + (start.getMonth()+1) + "-" + start.getDate();
+        }
+        else if(mode==="month"){
+            key = d.getFullYear() + "-" + (d.getMonth()+1);
+        }
+        else if(mode==="hour"){
+            key = d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+" "+d.getHours()+":00";
+        }
 
         map[key] = (map[key] || 0) + t.pnl;
     });
 
     eq = 0;
 
-    Object.keys(map).sort().forEach(k=>{
+    // 🔥 IMPORTANT: force sorted order
+    Object.keys(map).sort((a,b)=>new Date(a)-new Date(b)).forEach(k=>{
         eq += map[k];
         labels.push(k);
         values.push(eq);
