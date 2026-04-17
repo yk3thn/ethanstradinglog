@@ -100,7 +100,6 @@ import {
   onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
-/* 🔥 FIX: REGISTER ZOOM PLUGIN */
 import zoomPlugin from "https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/+esm";
 Chart.register(zoomPlugin);
 
@@ -117,17 +116,15 @@ const auth = getAuth(app);
 let trades=[];
 let chart;
 
-// 🔥 LOGIN
+// LOGIN
 window.login = async ()=>{
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
 };
 
-// 🔥 WATCH USER
+// AUTH WATCH
 onAuthStateChanged(auth, (user) => {
-    if (user) {
-        loadTrades();
-    }
+    if (user) loadTrades();
 });
 
 // NAV
@@ -158,14 +155,12 @@ type:"trade",
 pnl,
 date:ts
 });
-
 loadTrades();
 };
 
 // ADD BALANCE
 window.addBalance=async()=>{
 let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
-
 let amt=+balanceAmount.value;
 if(!amt) return;
 
@@ -174,7 +169,6 @@ type:"balance",
 pnl:amt,
 date:ts
 });
-
 balanceAmount.value="";
 loadTrades();
 };
@@ -202,7 +196,7 @@ tradeTable.innerHTML+=`
 drawChart();
 }
 
-// 🔥 CHART (RESTORED WORKING VERSION)
+// 🔥 FINAL FIXED CHART
 function drawChart(){
 
 if(chart) chart.destroy();
@@ -214,58 +208,59 @@ let labels=[];
 let values=[];
 let eq=0;
 
-// 🔥 PER TRADE (unchanged behavior)
+// 🔥 PER TRADE (perfect as before)
 if(mode==="trade"){
     sorted.forEach((t,i)=>{
-        eq+=t.pnl;
+        eq += t.pnl;
         labels.push(i);
         values.push(eq);
     });
 }
 
-// 🔥 TIMEFRAME FIX (THIS is the patch)
+// 🔥 TIMEFRAME (REAL FIX)
 else{
     let map = {};
 
     sorted.forEach(t=>{
+        eq += t.pnl;
+
         let d = new Date(t.date);
         let key;
 
-        // 🔥 CLEAN GROUPING (THIS is what you were missing)
         if(mode==="day"){
-            key = d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate();
+            key = d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
         }
         else if(mode==="week"){
             let start = new Date(d);
-            start.setDate(d.getDate() - d.getDay());
-            key = start.getFullYear() + "-" + (start.getMonth()+1) + "-" + start.getDate();
+            start.setDate(d.getDate()-d.getDay());
+            key = start.getFullYear()+"-"+(start.getMonth()+1)+"-"+start.getDate();
         }
         else if(mode==="month"){
-            key = d.getFullYear() + "-" + (d.getMonth()+1);
+            key = d.getFullYear()+"-"+(d.getMonth()+1);
         }
         else if(mode==="hour"){
-            key = d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+" "+d.getHours()+":00";
+            key = d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+" "+d.getHours();
         }
 
-        map[key] = (map[key] || 0) + t.pnl;
+        // 🔥 CRITICAL: snapshot equity (NOT summing)
+        map[key] = eq;
     });
 
-    eq = 0;
-
-    // 🔥 IMPORTANT: force sorted order
-    Object.keys(map).sort((a,b)=>new Date(a)-new Date(b)).forEach(k=>{
-        eq += map[k];
+    Object.keys(map)
+    .sort((a,b)=>new Date(a)-new Date(b))
+    .forEach(k=>{
         labels.push(k);
-        values.push(eq);
+        values.push(map[k]);
     });
 }
 
-// 🔥 SAME chart as before
+// 🔥 CHART (unchanged styling)
 chart=new Chart(document.getElementById("chart"),{
 type:"line",
 data:{
 labels:labels,
 datasets:[{
+label:"Equity",
 data:values,
 borderColor:"#4CAF50"
 }]
@@ -273,6 +268,7 @@ borderColor:"#4CAF50"
 options:{
 interaction:{mode:'index',intersect:false},
 plugins:{
+legend:{display:false},
 zoom:{
 pan:{enabled:true,mode:'x'},
 zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x'}
@@ -281,6 +277,8 @@ zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x'}
 }
 });
 }
+
+</script>
 
 </script>
 </body>
