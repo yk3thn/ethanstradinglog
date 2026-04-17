@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Trade Tracker Pro</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+
+<style>
+body { background:#0e0e0e; color:#e0e0e0; font-family:'Cascadia Code', monospace; margin:0;}
+.nav { display:flex; background:#181818;}
+.nav button { flex:1; padding:15px; border:none; background:none; color:#aaa; cursor:pointer;}
+.nav button.active { color:white; border-bottom:2px solid #4CAF50;}
+.page { display:none; padding:25px;}
+.page.active { display:block;}
+.card { background:#181818; padding:20px; border-radius:12px; border:1px solid #2a2a2a; margin-bottom:20px;}
+.form-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
+input,select { padding:10px; border-radius:6px; border:1px solid #333; background:#111; color:white;}
+.add-btn { grid-column:span 4; background:#4CAF50; border:none; padding:12px; cursor:pointer;}
+.balance-btn { grid-column:span 4; background:#2196F3; border:none; padding:12px; cursor:pointer;}
+.delete-btn { background:#2a2a2a; color:#ff5252; border:1px solid #444; padding:6px 10px; cursor:pointer;}
+canvas { height:400px !important;}
+</style>
+</head>
+
+<body>
+
+<div class="nav">
+<button class="active" onclick="switchPage('dashboard',this)">Dashboard</button>
+<button onclick="switchPage('analytics',this)">Analytics</button>
+</div>
+
+<div id="dashboard" class="page active">
+
+<div class="card">
+<div class="form-grid">
+
+<input id="ticker" placeholder="Ticker">
+<input id="entry" type="number" placeholder="Entry">
+<input id="exit" type="number" placeholder="Exit">
+<input id="qty" type="number" placeholder="Qty">
+
+<input id="date" type="date">
+<input id="time" type="time">
+
+<button class="add-btn" onclick="addTrade()">Add Trade</button>
+
+<!-- 🔥 NEW -->
+<input id="balanceAmount" type="number" placeholder="Amount (+ deposit / - withdraw)">
+<button class="balance-btn" onclick="addBalance()">Add Balance</button>
+
+</div>
+</div>
+
+<div class="card">
+<table>
+<tbody id="tradeTable"></tbody>
+</table>
+</div>
+
+</div>
+
+<div id="analytics" class="page">
+<div class="card">
+
+<select id="interval" onchange="drawChart()">
+<option value="trade">Per Trade</option>
+<option value="hour">Hourly</option>
+<option value="day">Daily</option>
+<option value="week">Weekly</option>
+<option value="month">Monthly</option>
+</select>
+
+<input type="date" id="hourFilter" onchange="drawChart()" style="margin-left:10px;">
+
+<canvas id="chart"></canvas>
+
+</div>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc }
+from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyD...",
+  authDomain:"ethanstradinglog-9d3b8.firebaseapp.com",
+  projectId:"ethanstradinglog-9d3b8"
+});
+
+const db = getFirestore(app);
+
+let trades=[];
+let chart;
+
+window.switchPage=(p,btn)=>{
+document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+document.getElementById(p).classList.add("active");
+document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
+btn.classList.add("active");
+if(p==="analytics") setTimeout(drawChart,100);
+};
+
+async function loadTrades(){
+const snap=await getDocs(collection(db,"trades"));
+trades=[];
+snap.forEach(d=>{
+let t=d.data(); t.id=d.id; trades.push(t);
+});
+render();
+}
+
+// 🔥 ADD TRADE
+window.addTrade=async()=>{
+let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
+
+let pnl=(+exit.value - +entry.value) * +qty.value;
+
+await addDoc(collection(db,"trades"),{
+type:"trade",
+ticker:ticker.value,
+entry:+entry.value,
+exit:+exit.value,
+qty:+qty.value,
+pnl,
+date:ts
+});
+
+loadTrades();
+};
+
+// 🔥 ADD BALANCE
+window.addBalance=async()=>{
+let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
+
+let amt=+balanceAmount.value;
+if(!amt) return;
+
+await addDoc(collection(db,"trades"),{
+type:"balance",
+pnl:amt,
+date:ts
+});
+
+balanceAmount.value="";
+loadTrades();
+};
+
+window.deleteTrade=async(id)=>{
+await deleteDoc(doc(db,"trades",id));
+loadTrades();
+};
+
+function render(){
+tradeTable.innerHTML="";
+trades.sort((a,b)=>a.date-b.date).forEach(t=>{
+
+let label = t.type==="balance" ? "💰 Balance" : t.ticker;
+
+tradeTable.innerHTML+=`
+<tr>
+<td>${label}</td>
+<td>$${t.pnl.toFixed(2)}</td>
+<td>${new Date(t.date).toLocaleString()}</td>
+<td><button onclick="deleteTrade('${t.id}')">Delete</button></td>
+</tr>`;
+});
+drawChart();
+}
+
+window.drawChart=function(){
+
+if(chart) chart.destroy();
+if(trades.length===0) return;
+
+let sorted=[...trades].sort((a,b)=>a.date-b.date);
+
+let labels=[],values=[],equity=0;
+
+sorted.forEach((t,i)=>{
+equity+=t.pnl;
+labels.push(i);
+values.push(equity);
+});
+
+chart=new Chart(document.getElementById("chart"),{
+type:"line",
+data:{
+labels,
+datasets:[{
+label:"Equity",
+data:values,
+borderColor:"#4CAF50",
+backgroundColor:"rgba(76,175,80,0.1)",
+fill:true
+}]
+},
+options:{
+interaction:{mode:'index',intersect:false},
+plugins:{legend:{display:false}},
+scales:{
+x:{ticks:{color:"#aaa"}},
+y:{ticks:{color:"#aaa",callback:v=>"$"+v}}
+}
+}
+});
+};
+
+loadTrades();
+
+</script>
+</body>
+</html>
