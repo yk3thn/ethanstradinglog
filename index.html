@@ -195,7 +195,9 @@ function render(){
     tradeTable.innerHTML = "";
 
     trades.sort((a,b)=>a.date-b.date).forEach(t=>{
-        let label = t.type==="balance"?"💰 Balance":"Trade";
+        let label = t.type==="balance"
+    ? "💰 Balance"
+    : `${t.ticker || "Trade"} @ ${t.entry ?? "-"}`;
         tradeTable.innerHTML += `
         <tr>
             <td>${label}</td>
