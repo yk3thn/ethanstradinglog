@@ -156,10 +156,13 @@ window.addTrade = async () => {
     let pnl = (+exit.value - +entry.value) * +qty.value;
 
     await addDoc(collection(db,"trades"),{
-        type:"trade",
-        pnl,
-        date:ts
-    });
+    type:"trade",
+    ticker: ticker.value,
+    entry: +entry.value,
+    exit: +exit.value,
+    pnl,
+    date:ts
+});
 
     loadTrades();
 };
