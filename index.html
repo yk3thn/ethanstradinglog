@@ -17,6 +17,7 @@ body { background:#0e0e0e; color:#e0e0e0; font-family:'Cascadia Code', monospace
 .form-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
 input { padding:10px; border-radius:6px; border:1px solid #333; background:#111; color:white;}
 .add-btn { grid-column:span 4; background:#4CAF50; border:none; padding:12px; cursor:pointer; color:white;}
+.del-btn { grid-column:span 4; background:#d63636; border:none; padding:12px; cursor:pointer; color:white;}
 .balance-btn { grid-column:span 4; background:#2196F3; border:none; padding:12px; cursor:pointer; color:white;}
 canvas { height:400px !important;}
 
@@ -190,7 +191,7 @@ tradeTable.innerHTML+=`
 <td>${label}</td>
 <td>$${t.pnl.toFixed(2)}</td>
 <td>${new Date(t.date).toLocaleString()}</td>
-<td><button onclick="deleteTrade('${t.id}')" class="add-btn">Delete</button></td>
+<td><button onclick="deleteTrade('${t.id}')" class="add-btn">DELETE</button></td>
 </tr>`;
 });
 drawChart();
