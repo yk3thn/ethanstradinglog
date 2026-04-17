@@ -129,7 +129,7 @@ let chart;
 function calculateMetrics(){
 console.log("Trades:", trades);
 
-    let tradeOnly = trades.filter(t => t.type === "trade");
+    let tradeOnly = trades.filter(t => t.type !== "balance");
 
     if(tradeOnly.length === 0){
         winRate.innerText = "Win Rate: --";
@@ -202,7 +202,7 @@ window.login = async () => {
 
 // 🔥 AUTH WATCH
 onAuthStateChanged(auth, (user) => {
-    if (user) loadTrades();
+    loadTrades();
 });
 
 // 🔥 NAV
@@ -303,6 +303,7 @@ if (t.type === "balance") {
     });
 
     drawChart();
+	calculateMetrics();
 }
 
 // 🔥 CHART (GLOBAL FIX)
@@ -389,8 +390,6 @@ window.drawChart = function(){
         }
     });
 };
-
-calculateMetrics();
 
 </script>
 </body>
