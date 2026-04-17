@@ -5,6 +5,7 @@
 <title>Trade Tracker Pro</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
 
 <style>
 body { background:#0e0e0e; color:#e0e0e0; font-family:'Cascadia Code', monospace; margin:0;}
@@ -17,7 +18,7 @@ body { background:#0e0e0e; color:#e0e0e0; font-family:'Cascadia Code', monospace
 .form-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
 input { font-size:25px; padding:10px; border-radius:6px; border:1px solid #333; background:#111; color:white;}
 .add-btn { grid-column:span 4; background:#4CAF50; border:none; padding:12px; cursor:pointer; color:white;}
-.del-btn { grid-column:span 4; background:#d63636; border:none; padding:12px; cursor:pointer; color:white;}
+.del-btn { background:#d63636; border:none; padding:12px; cursor:pointer; color:white;}
 .balance-btn { grid-column:span 4; background:#2196F3; border:none; padding:12px; cursor:pointer; color:white;}
 canvas { height:400px !important;}
 
@@ -184,7 +185,7 @@ tradeTable.innerHTML+=`
 drawChart();
 }
 
-// 🔥 FIXED CHART (REAL TIMEFRAME DIFFERENCE)
+// 🔥 FINAL FIXED CHART
 function drawChart(){
 
 if(chart) chart.destroy();
@@ -192,29 +193,20 @@ if(chart) chart.destroy();
 let mode = document.getElementById("timeframe").value;
 let sorted = [...trades].sort((a,b)=>a.date-b.date);
 
-let labels=[],values=[];
-let running=0;
+let data=[];
+let equity=0;
 
-// build timeline
-let timeline=[];
 sorted.forEach(t=>{
-running+=t.pnl;
-timeline.push({time:t.date,equity:running});
+equity += t.pnl;
+data.push({x: t.date, y: equity});
 });
 
-// per trade
-if(mode==="trade"){
-labels = timeline.map((_,i)=>i);
-values = timeline.map(t=>t.equity);
-}
-
-// grouping
-if(mode!=="trade"){
-
+// simple aggregation
+if(mode !== "trade"){
 let grouped={};
 
-timeline.forEach(p=>{
-let d=new Date(p.time);
+data.forEach(p=>{
+let d=new Date(p.x);
 let key;
 
 if(mode==="hour") key=d.toISOString().slice(0,13);
@@ -225,20 +217,39 @@ key=d.toISOString().slice(0,10);
 }
 if(mode==="month") key=d.getFullYear()+"-"+(d.getMonth()+1);
 
-// 🔥 accumulate properly
-grouped[key] = p.equity;
+grouped[key] = p.y;
 });
 
-// sort + build
-Object.keys(grouped).sort().forEach(k=>{
-labels.push(k);
-values.push(grouped[k]);
+data = Object.keys(grouped).map(k=>{
+return {x: new Date(k), y: grouped[k]};
 });
 }
 
 chart=new Chart(document.getElementById("chart"),{
 type:"line",
-data:{labels,datasets:[{data:values,borderColor:"#4CAF50"}]}
+data:{
+datasets:[{
+data:data,
+borderColor:"#4CAF50",
+fill:false
+}]
+},
+options:{
+parsing:false,
+scales:{
+x:{
+type:"time",
+time:{unit: mode==="trade" ? "day" : mode}
+},
+y:{}
+},
+plugins:{
+zoom:{
+zoom:{wheel:{enabled:true}, pinch:{enabled:true}, mode:'x'},
+pan:{enabled:true, mode:'x'}
+}
+}
+}
 });
 }
 
