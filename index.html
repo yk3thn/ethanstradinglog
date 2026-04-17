@@ -29,11 +29,10 @@ canvas { height:400px !important;}
     color:white;
 }
 
-/* 🔥 ONLY CHANGE: slightly bigger text */
 #tradeTable td {
     font-size: 25px;
     padding: 6px;
-	font-weight:bold;
+    font-weight:bold;
 }
 </style>
 </head>
@@ -48,7 +47,6 @@ canvas { height:400px !important;}
 </div>
 
 <div id="dashboard" class="page active">
-
 <div class="card">
 <div class="form-grid">
 
@@ -71,11 +69,19 @@ canvas { height:400px !important;}
 <div class="card">
 <table><tbody id="tradeTable"></tbody></table>
 </div>
-
 </div>
 
 <div id="analytics" class="page">
 <div class="card">
+
+<!-- 🔥 NEW -->
+<select id="timeframe" onchange="drawChart()">
+<option value="trade">Per Trade</option>
+<option value="hour">Hourly</option>
+<option value="day">Daily</option>
+<option value="week">Weekly</option>
+<option value="month">Monthly</option>
+</select>
 
 <canvas id="chart"></canvas>
 
@@ -95,7 +101,6 @@ import {
   onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
-// 🔥 INIT
 const app = initializeApp({
   apiKey:"AIzaSyD2C4DK5VZOJQ6AtmiKmBR9jm7iFS84LN4",
   authDomain:"ethanstradinglog-9d3b8.firebaseapp.com",
@@ -108,23 +113,15 @@ const auth = getAuth(app);
 let trades=[];
 let chart;
 
-// 🔥 LOGIN
 window.login = async ()=>{
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
 };
 
-// 🔥 WATCH USER
 onAuthStateChanged(auth, (user) => {
-    if (user) {
-        console.log("YOUR UID:", user.uid);
-        loadTrades();
-    } else {
-        console.log("Not signed in");
-    }
+    if (user) loadTrades();
 });
 
-// NAV
 window.switchPage=(p,btn)=>{
 document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
 document.getElementById(p).classList.add("active");
@@ -132,7 +129,6 @@ document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active")
 btn.classList.add("active");
 };
 
-// LOAD
 async function loadTrades(){
 const snap = await getDocs(collection(db,"trades"));
 trades=[];
@@ -142,10 +138,8 @@ let t=d.data(); t.id=d.id; trades.push(t);
 render();
 }
 
-// ADD TRADE
 window.addTrade=async()=>{
 let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
-
 let pnl=(+exit.value - +entry.value) * +qty.value;
 
 await addDoc(collection(db,"trades"),{
@@ -153,14 +147,11 @@ type:"trade",
 pnl,
 date:ts
 });
-
 loadTrades();
 };
 
-// ADD BALANCE
 window.addBalance=async()=>{
 let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
-
 let amt=+balanceAmount.value;
 if(!amt) return;
 
@@ -169,20 +160,16 @@ type:"balance",
 pnl:amt,
 date:ts
 });
-
 balanceAmount.value="";
 loadTrades();
 };
 
-// 🔥 ONLY CHANGE: confirm delete
 window.deleteTrade=async(id)=>{
 if(!confirm("Are you sure you want to delete this entry?")) return;
-
 await deleteDoc(doc(db,"trades",id));
 loadTrades();
 };
 
-// TABLE
 function render(){
 tradeTable.innerHTML="";
 trades.sort((a,b)=>a.date-b.date).forEach(t=>{
@@ -198,25 +185,58 @@ tradeTable.innerHTML+=`
 drawChart();
 }
 
-// CHART
+// 🔥 FIXED CHART
 function drawChart(){
 
 if(chart) chart.destroy();
 
-let labels=[],values=[],eq=0;
+let mode = document.getElementById("timeframe").value;
+let sorted = [...trades].sort((a,b)=>a.date-b.date);
 
-trades.forEach((t,i)=>{
-eq+=t.pnl;
-labels.push(i);
-values.push(eq);
+let labels=[],values=[];
+let running=0;
+
+let timeline=[];
+
+sorted.forEach(t=>{
+running+=t.pnl;
+timeline.push({time:t.date,equity:running});
 });
+
+if(mode==="trade"){
+labels = timeline.map((_,i)=>i);
+values = timeline.map(t=>t.equity);
+}
+
+function bucket(ts){
+let d=new Date(ts);
+
+if(mode==="hour") return d.toISOString().slice(0,13);
+if(mode==="day") return d.toISOString().slice(0,10);
+if(mode==="week"){
+d.setDate(d.getDate()-d.getDay());
+return d.toISOString().slice(0,10);
+}
+if(mode==="month") return d.getFullYear()+"-"+(d.getMonth()+1);
+}
+
+if(mode!=="trade"){
+let map={};
+
+timeline.forEach(p=>{
+let key=bucket(p.time);
+map[key]=p.equity;
+});
+
+Object.keys(map).sort().forEach(k=>{
+labels.push(k);
+values.push(map[k]);
+});
+}
 
 chart=new Chart(document.getElementById("chart"),{
 type:"line",
-data:{labels,datasets:[{data:values,borderColor:"#4CAF50"}]},
-options:{
-interaction:{mode:'index',intersect:false}
-}
+data:{labels,datasets:[{data:values,borderColor:"#4CAF50"}]}
 });
 }
 
