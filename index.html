@@ -5,7 +5,6 @@
 <title>Trade Tracker Pro</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
 
 <style>
 body { background:#0e0e0e; color:#e0e0e0; font-family:'Cascadia Code', monospace; margin:0;}
@@ -16,7 +15,7 @@ body { background:#0e0e0e; color:#e0e0e0; font-family:'Cascadia Code', monospace
 .page.active { display:block;}
 .card { background:#181818; padding:20px; border-radius:12px; border:1px solid #2a2a2a; margin-bottom:20px;}
 .form-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
-input,select { padding:10px; border-radius:6px; border:1px solid #333; background:#111; color:white;}
+input { padding:10px; border-radius:6px; border:1px solid #333; background:#111; color:white;}
 .add-btn { grid-column:span 4; background:#4CAF50; border:none; padding:12px; cursor:pointer;}
 .balance-btn { grid-column:span 4; background:#2196F3; border:none; padding:12px; cursor:pointer;}
 canvas { height:400px !important;}
@@ -24,6 +23,9 @@ canvas { height:400px !important;}
 </head>
 
 <body>
+
+<!-- 🔥 AUTH BUTTON -->
+<button onclick="login()" style="margin:10px;">Sign in with Google</button>
 
 <div class="nav">
 <button class="active" onclick="switchPage('dashboard',this)">Dashboard</button>
@@ -60,16 +62,6 @@ canvas { height:400px !important;}
 <div id="analytics" class="page">
 <div class="card">
 
-<select id="interval" onchange="drawChart()">
-<option value="trade">Per Trade</option>
-<option value="hour">Hourly</option>
-<option value="day">Daily</option>
-<option value="week">Weekly</option>
-<option value="month">Monthly</option>
-</select>
-
-<input type="date" id="hourFilter" onchange="drawChart()" style="margin-left:10px;">
-
 <canvas id="chart"></canvas>
 
 </div>
@@ -78,30 +70,56 @@ canvas { height:400px !important;}
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc }
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } 
 from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+// 🔥 INIT
 const app = initializeApp({
-  apiKey:"AIzaSyD...",
+  apiKey:"AIzaSyD2C4DK5VZOJQ6AtmiKmBR9jm7iFS84LN4",
   authDomain:"ethanstradinglog-9d3b8.firebaseapp.com",
   projectId:"ethanstradinglog-9d3b8"
 });
 
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 let trades=[];
 let chart;
 
+// 🔥 LOGIN
+window.login = async ()=>{
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+};
+
+// 🔥 WATCH USER
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        console.log("YOUR UID:", user.uid);
+        loadTrades();
+    } else {
+        console.log("Not signed in");
+    }
+});
+
+// NAV
 window.switchPage=(p,btn)=>{
 document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
 document.getElementById(p).classList.add("active");
 document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
 btn.classList.add("active");
-if(p==="analytics") setTimeout(drawChart,100);
 };
 
+// LOAD
 async function loadTrades(){
-const snap=await getDocs(collection(db,"trades"));
+const snap = await getDocs(collection(db,"trades"));
 trades=[];
 snap.forEach(d=>{
 let t=d.data(); t.id=d.id; trades.push(t);
@@ -109,6 +127,7 @@ let t=d.data(); t.id=d.id; trades.push(t);
 render();
 }
 
+// ADD TRADE
 window.addTrade=async()=>{
 let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
 
@@ -123,6 +142,7 @@ date:ts
 loadTrades();
 };
 
+// ADD BALANCE
 window.addBalance=async()=>{
 let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
 
@@ -139,11 +159,13 @@ balanceAmount.value="";
 loadTrades();
 };
 
+// DELETE
 window.deleteTrade=async(id)=>{
 await deleteDoc(doc(db,"trades",id));
 loadTrades();
 };
 
+// TABLE
 function render(){
 tradeTable.innerHTML="";
 trades.sort((a,b)=>a.date-b.date).forEach(t=>{
@@ -159,103 +181,27 @@ tradeTable.innerHTML+=`
 drawChart();
 }
 
-// 🔥 FIXED ENGINE
-window.drawChart=function(){
+// CHART
+function drawChart(){
 
 if(chart) chart.destroy();
-if(trades.length===0) return;
 
-let mode=interval.value;
-let sorted=[...trades].sort((a,b)=>a.date-b.date);
+let labels=[],values=[],eq=0;
 
-let labels=[],values=[];
-
-// 🔥 PRE-COMPUTE TRUE EQUITY CURVE
-let running=0;
-let timeline=[];
-
-sorted.forEach(t=>{
-running+=t.pnl;
-timeline.push({time:t.date, equity:running});
+trades.forEach((t,i)=>{
+eq+=t.pnl;
+labels.push(i);
+values.push(eq);
 });
-
-if(mode==="trade"){
-labels = timeline.map((_,i)=>"T"+(i+1));
-values = timeline.map(p=>p.equity);
-}
-
-// 🔥 HOURLY FIX
-if(mode==="hour"){
-let selected=hourFilter.value;
-if(!selected) return;
-
-let start=new Date(selected+"T00:00:00").getTime();
-
-for(let h=0;h<24;h++){
-let t=start+h*3600000;
-
-let val=0;
-for(let i=0;i<timeline.length;i++){
-if(timeline[i].time<=t) val=timeline[i].equity;
-}
-
-labels.push(h+":00");
-values.push(val);
-}
-}
-
-// 🔥 DAY/WEEK/MONTH USE SAME ENGINE
-function bucket(ms){
-if(mode==="day") return new Date(ms).toISOString().slice(0,10);
-if(mode==="week"){
-let d=new Date(ms);
-d.setDate(d.getDate()-d.getDay());
-return d.toISOString().slice(0,10);
-}
-if(mode==="month"){
-let d=new Date(ms);
-return d.getFullYear()+"-"+(d.getMonth()+1);
-}
-}
-
-if(mode==="day"||mode==="week"||mode==="month"){
-let seen={};
-
-timeline.forEach(p=>{
-let key=bucket(p.time);
-seen[key]=p.equity;
-});
-
-Object.keys(seen).sort().forEach(k=>{
-labels.push(k);
-values.push(seen[k]);
-});
-}
 
 chart=new Chart(document.getElementById("chart"),{
 type:"line",
-data:{
-labels,
-datasets:[{
-label:"Equity",
-data:values,
-borderColor:"#4CAF50",
-backgroundColor:"rgba(76,175,80,0.1)",
-fill:true
-}]
-},
+data:{labels,datasets:[{data:values,borderColor:"#4CAF50"}]},
 options:{
-interaction:{mode:'index',intersect:false},
-plugins:{legend:{display:false}},
-scales:{
-x:{ticks:{color:"#aaa"},grid:{color:"#222"}},
-y:{ticks:{color:"#aaa",callback:v=>"$"+v},grid:{color:"#222"}}
-}
+interaction:{mode:'index',intersect:false}
 }
 });
-};
-
-loadTrades();
+}
 
 </script>
 </body>
