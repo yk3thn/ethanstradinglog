@@ -113,174 +113,185 @@ const app = initializeApp({
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-let trades=[];
+let trades = [];
 let chart;
 
-// LOGIN
-window.login = async ()=>{
+// 🔥 LOGIN
+window.login = async () => {
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
 };
 
-// AUTH WATCH
+// 🔥 AUTH WATCH
 onAuthStateChanged(auth, (user) => {
     if (user) loadTrades();
 });
 
-// NAV
-window.switchPage=(p,btn)=>{
-document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
-document.getElementById(p).classList.add("active");
-document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
-btn.classList.add("active");
+// 🔥 NAV
+window.switchPage = (p, btn) => {
+    document.querySelectorAll(".page").forEach(x => x.classList.remove("active"));
+    document.getElementById(p).classList.add("active");
+    document.querySelectorAll(".nav button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
 };
 
-// LOAD
+// 🔥 LOAD
 async function loadTrades(){
-const snap = await getDocs(collection(db,"trades"));
-trades=[];
-snap.forEach(d=>{
-let t=d.data(); t.id=d.id; trades.push(t);
-});
-render();
+    const snap = await getDocs(collection(db,"trades"));
+    trades = [];
+    snap.forEach(d => {
+        let t = d.data();
+        t.id = d.id;
+        trades.push(t);
+    });
+    render();
 }
 
-// ADD TRADE
-window.addTrade=async()=>{
-let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
-let pnl=(+exit.value - +entry.value) * +qty.value;
+// 🔥 ADD TRADE
+window.addTrade = async () => {
+    let ts = (date.value && time.value)
+        ? new Date(date.value + "T" + time.value).getTime()
+        : Date.now();
 
-await addDoc(collection(db,"trades"),{
-type:"trade",
-pnl,
-date:ts
-});
-loadTrades();
+    let pnl = (+exit.value - +entry.value) * +qty.value;
+
+    await addDoc(collection(db,"trades"),{
+        type:"trade",
+        pnl,
+        date:ts
+    });
+
+    loadTrades();
 };
 
-// ADD BALANCE
-window.addBalance=async()=>{
-let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
-let amt=+balanceAmount.value;
-if(!amt) return;
+// 🔥 ADD BALANCE
+window.addBalance = async () => {
+    let ts = (date.value && time.value)
+        ? new Date(date.value + "T" + time.value).getTime()
+        : Date.now();
 
-await addDoc(collection(db,"trades"),{
-type:"balance",
-pnl:amt,
-date:ts
-});
-balanceAmount.value="";
-loadTrades();
+    let amt = +balanceAmount.value;
+    if(!amt) return;
+
+    await addDoc(collection(db,"trades"),{
+        type:"balance",
+        pnl:amt,
+        date:ts
+    });
+
+    balanceAmount.value = "";
+    loadTrades();
 };
 
-// DELETE
-window.deleteTrade=async(id)=>{
-if(!confirm("Are you sure you want to delete this entry?")) return;
-await deleteDoc(doc(db,"trades",id));
-loadTrades();
+// 🔥 DELETE
+window.deleteTrade = async (id) => {
+    if(!confirm("Are you sure you want to delete this entry?")) return;
+    await deleteDoc(doc(db,"trades",id));
+    loadTrades();
 };
 
-// TABLE
+// 🔥 TABLE
 function render(){
-tradeTable.innerHTML="";
-trades.sort((a,b)=>a.date-b.date).forEach(t=>{
-let label=t.type==="balance"?"💰 Balance":"Trade";
-tradeTable.innerHTML+=`
-<tr>
-<td>${label}</td>
-<td>$${t.pnl.toFixed(2)}</td>
-<td>${new Date(t.date).toLocaleString()}</td>
-<td><button onclick="deleteTrade('${t.id}')" class="del-btn">DELETE</button></td>
-</tr>`;
-});
-drawChart();
-}
+    tradeTable.innerHTML = "";
 
-// 🔥 FINAL FIXED CHART
-function drawChart(){
-console.log("TIMEFRAME:", document.getElementById("timeframe").value);
-console.log("TRADES:", trades.length, trades);
-
-if(chart) chart.destroy();
-
-let mode = document.getElementById("timeframe").value;
-let sorted = [...trades].sort((a,b)=>a.date-b.date);
-
-let labels=[];
-let values=[];
-let eq=0;
-
-// 🔥 PER TRADE (perfect as before)
-if(mode==="trade"){
-    sorted.forEach((t,i)=>{
-        eq += t.pnl;
-        labels.push(i);
-        values.push(eq);
-    });
-}
-
-// 🔥 TIMEFRAME (REAL FIX)
-else{
-    let map = {};
-
-    sorted.forEach(t=>{
-        eq += t.pnl;
-
-        let d = new Date(t.date);
-        let key;
-
-        if(mode==="day"){
-            key = d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
-        }
-        else if(mode==="week"){
-            let start = new Date(d);
-            start.setDate(d.getDate()-d.getDay());
-            key = start.getFullYear()+"-"+(start.getMonth()+1)+"-"+start.getDate();
-        }
-        else if(mode==="month"){
-            key = d.getFullYear()+"-"+(d.getMonth()+1);
-        }
-        else if(mode==="hour"){
-            key = d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+" "+d.getHours();
-        }
-
-        // 🔥 CRITICAL: snapshot equity (NOT summing)
-        map[key] = eq;
+    trades.sort((a,b)=>a.date-b.date).forEach(t=>{
+        let label = t.type==="balance"?"💰 Balance":"Trade";
+        tradeTable.innerHTML += `
+        <tr>
+            <td>${label}</td>
+            <td>$${t.pnl.toFixed(2)}</td>
+            <td>${new Date(t.date).toLocaleString()}</td>
+            <td><button onclick="deleteTrade('${t.id}')" class="del-btn">DELETE</button></td>
+        </tr>`;
     });
 
-    Object.keys(map)
-    .sort((a,b)=>new Date(a)-new Date(b))
-    .forEach(k=>{
-        labels.push(k);
-        values.push(map[k]);
+    drawChart();
+}
+
+// 🔥 CHART (GLOBAL FIX)
+window.drawChart = function(){
+
+    if(chart) chart.destroy();
+
+    let mode = document.getElementById("timeframe").value;
+    let sorted = [...trades].sort((a,b)=>a.date-b.date);
+
+    let labels = [];
+    let values = [];
+    let eq = 0;
+
+    // PER TRADE (perfect)
+    if(mode === "trade"){
+        sorted.forEach((t,i)=>{
+            eq += t.pnl;
+            labels.push(i);
+            values.push(eq);
+        });
+    }
+
+    // TIMEFRAMES
+    else{
+        let map = {};
+
+        sorted.forEach(t=>{
+            eq += t.pnl;
+
+            let d = new Date(t.date);
+            let key;
+
+            if(mode==="day"){
+                key = d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
+            }
+            else if(mode==="week"){
+                let start = new Date(d);
+                start.setDate(d.getDate()-d.getDay());
+                key = start.getFullYear()+"-"+(start.getMonth()+1)+"-"+start.getDate();
+            }
+            else if(mode==="month"){
+                key = d.getFullYear()+"-"+(d.getMonth()+1);
+            }
+            else if(mode==="hour"){
+                key = d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()+" "+d.getHours();
+            }
+
+            // snapshot equity
+            map[key] = eq;
+        });
+
+        Object.keys(map)
+        .sort((a,b)=>new Date(a)-new Date(b))
+        .forEach(k=>{
+            labels.push(k);
+            values.push(map[k]);
+        });
+    }
+
+    chart = new Chart(document.getElementById("chart"),{
+        type:"line",
+        data:{
+            labels:labels,
+            datasets:[{
+                label:"Equity",
+                data:values,
+                borderColor:"#4CAF50"
+            }]
+        },
+        options:{
+            interaction:{mode:'index',intersect:false},
+            plugins:{
+                legend:{display:false},
+                zoom:{
+                    pan:{enabled:true,mode:'x'},
+                    zoom:{
+                        wheel:{enabled:true},
+                        pinch:{enabled:true},
+                        mode:'x'
+                    }
+                }
+            }
+        }
     });
-}
-
-// 🔥 CHART (unchanged styling)
-chart=new Chart(document.getElementById("chart"),{
-type:"line",
-data:{
-labels:labels,
-datasets:[{
-label:"Equity",
-data:values,
-borderColor:"#4CAF50"
-}]
-},
-options:{
-interaction:{mode:'index',intersect:false},
-plugins:{
-legend:{display:false},
-zoom:{
-pan:{enabled:true,mode:'x'},
-zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x'}
-}
-}
-}
-});
-}
-
-</script>
+};
 
 </script>
 </body>
