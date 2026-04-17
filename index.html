@@ -74,7 +74,6 @@ canvas { height:400px !important;}
 <div id="analytics" class="page">
 <div class="card">
 
-<!-- 🔥 NEW -->
 <select id="timeframe" onchange="drawChart()">
 <option value="trade">Per Trade</option>
 <option value="hour">Hourly</option>
@@ -185,7 +184,7 @@ tradeTable.innerHTML+=`
 drawChart();
 }
 
-// 🔥 FIXED CHART
+// 🔥 FIXED CHART (REAL TIMEFRAME DIFFERENCE)
 function drawChart(){
 
 if(chart) chart.destroy();
@@ -196,41 +195,44 @@ let sorted = [...trades].sort((a,b)=>a.date-b.date);
 let labels=[],values=[];
 let running=0;
 
+// build timeline
 let timeline=[];
-
 sorted.forEach(t=>{
 running+=t.pnl;
 timeline.push({time:t.date,equity:running});
 });
 
+// per trade
 if(mode==="trade"){
 labels = timeline.map((_,i)=>i);
 values = timeline.map(t=>t.equity);
 }
 
-function bucket(ts){
-let d=new Date(ts);
-
-if(mode==="hour") return d.toISOString().slice(0,13);
-if(mode==="day") return d.toISOString().slice(0,10);
-if(mode==="week"){
-d.setDate(d.getDate()-d.getDay());
-return d.toISOString().slice(0,10);
-}
-if(mode==="month") return d.getFullYear()+"-"+(d.getMonth()+1);
-}
-
+// grouping
 if(mode!=="trade"){
-let map={};
+
+let grouped={};
 
 timeline.forEach(p=>{
-let key=bucket(p.time);
-map[key]=p.equity;
+let d=new Date(p.time);
+let key;
+
+if(mode==="hour") key=d.toISOString().slice(0,13);
+if(mode==="day") key=d.toISOString().slice(0,10);
+if(mode==="week"){
+d.setDate(d.getDate()-d.getDay());
+key=d.toISOString().slice(0,10);
+}
+if(mode==="month") key=d.getFullYear()+"-"+(d.getMonth()+1);
+
+// 🔥 accumulate properly
+grouped[key] = p.equity;
 });
 
-Object.keys(map).sort().forEach(k=>{
+// sort + build
+Object.keys(grouped).sort().forEach(k=>{
 labels.push(k);
-values.push(map[k]);
+values.push(grouped[k]);
 });
 }
 
