@@ -8,24 +8,76 @@
 
 <style>
 body { background:#0e0e0e; color:#e0e0e0; font-family:'Cascadia Code', monospace; margin:0;}
+
 .nav { display:flex; background:#181818;}
 .nav button { flex:1; padding:15px; border:none; background:none; color:#aaa; cursor:pointer;}
 .nav button.active { color:white; border-bottom:2px solid #4CAF50;}
+
 .page { display:none; padding:25px;}
 .page.active { display:block;}
-.card { background:#181818; padding:20px; border-radius:12px; border:1px solid #2a2a2a; margin-bottom:20px;}
-.form-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
-input { padding:10px; border-radius:6px; border:1px solid #333; background:#111; color:white;}
-.add-btn { grid-column:span 4; background:#4CAF50; border:none; padding:12px; cursor:pointer;}
-.balance-btn { grid-column:span 4; background:#2196F3; border:none; padding:12px; cursor:pointer;}
-canvas { height:400px !important;}
+
+.card {
+background:#181818;
+padding:20px;
+border-radius:12px;
+border:1px solid #2a2a2a;
+margin-bottom:20px;
+}
+
+.form-grid {
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:10px;
+}
+
+input {
+padding:10px;
+border-radius:6px;
+border:1px solid #333;
+background:#111;
+color:white;
+}
+
+.add-btn {
+grid-column:span 4;
+background:#4CAF50;
+border:none;
+padding:12px;
+cursor:pointer;
+}
+
+.balance-btn {
+grid-column:span 4;
+background:#2196F3;
+border:none;
+padding:12px;
+cursor:pointer;
+}
+
+canvas { height:400px !important; }
+
+/* 🔥 AUTH OVERLAY */
+#authOverlay {
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:#0e0e0e;
+display:flex;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+z-index:9999;
+font-size:20px;
+}
 </style>
 </head>
 
 <body>
 
-<!-- 🔥 AUTH BUTTON -->
-<button onclick="login()" style="margin:10px;">Sign in with Google</button>
+<!-- 🔥 AUTH SCREEN -->
+<div id="authOverlay">Connecting...</div>
 
 <div class="nav">
 <button class="active" onclick="switchPage('dashboard',this)">Dashboard</button>
@@ -61,9 +113,7 @@ canvas { height:400px !important;}
 
 <div id="analytics" class="page">
 <div class="card">
-
 <canvas id="chart"></canvas>
-
 </div>
 </div>
 
@@ -82,7 +132,7 @@ import {
 
 // 🔥 INIT
 const app = initializeApp({
-  apiKey:"AIzaSyD2C4DK5VZOJQ6AtmiKmBR9jm7iFS84LN4",
+  apiKey:"PASTE_REAL_KEY_HERE",
   authDomain:"ethanstradinglog-9d3b8.firebaseapp.com",
   projectId:"ethanstradinglog-9d3b8"
 });
@@ -93,19 +143,28 @@ const auth = getAuth(app);
 let trades=[];
 let chart;
 
-// 🔥 LOGIN
-window.login = async ()=>{
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-};
+// 🔥 AUTO LOGIN
+const provider = new GoogleAuthProvider();
 
-// 🔥 WATCH USER
-onAuthStateChanged(auth, (user) => {
+async function autoLogin(){
+    try {
+        await signInWithPopup(auth, provider);
+    } catch(e){
+        console.error("Login error:", e);
+    }
+}
+
+// 🔥 AUTH STATE
+onAuthStateChanged(auth, async (user) => {
+
     if (user) {
-        console.log("YOUR UID:", user.uid);
-        loadTrades();
+        console.log("Logged in:", user.uid);
+
+        document.getElementById("authOverlay").style.display = "none";
+        await loadTrades();
+
     } else {
-        console.log("Not signed in");
+        await autoLogin();
     }
 });
 
