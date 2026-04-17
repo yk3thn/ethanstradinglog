@@ -64,6 +64,13 @@ canvas { height:400px !important;}
 <button class="balance-btn" onclick="addBalance()">Add Balance</button>
 
 </div>
+
+<div class="card" id="metricsBar" style="display:flex; justify-content:space-between; font-size:20px; font-weight:bold;">
+    <div id="winRate">Win Rate: --</div>
+    <div id="sharpe">Sharpe: --</div>
+    <div id="return">1Y Return: --</div>
+</div>
+
 </div>
 
 <div class="card">
@@ -112,6 +119,10 @@ const app = initializeApp({
 
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+const winRate = document.getElementById("winRate");
+const sharpe = document.getElementById("sharpe");
+const returnEl = document.getElementById("return");
 
 let trades = [];
 let chart;
@@ -186,6 +197,7 @@ window.addBalance = async () => {
     loadTrades();
 };
 
+
 // 🔥 DELETE
 window.deleteTrade = async (id) => {
     if(!confirm("Are you sure you want to delete this entry?")) return;
@@ -224,6 +236,72 @@ if (t.type === "balance") {
     });
 
     drawChart();
+}
+
+function calculateMetrics(){
+
+    let tradeOnly = trades.filter(t => t.type === "trade");
+
+    if(tradeOnly.length === 0){
+        winRate.innerText = "Win Rate: --";
+        sharpe.innerText = "Sharpe: --";
+        returnEl.innerText = "1Y Return: --";
+        return;
+    }
+
+    // ✅ WIN RATE
+    let wins = tradeOnly.filter(t => t.pnl > 0).length;
+    let winRateVal = (wins / tradeOnly.length) * 100;
+
+    winRate.innerText = `Win Rate: ${winRateVal.toFixed(1)}%`;
+
+    // ✅ BUILD EQUITY CURVE
+    let sorted = [...trades].sort((a,b)=>a.date-b.date);
+
+    let equity = 0;
+    let curve = [];
+
+    sorted.forEach(t=>{
+        equity += t.pnl;
+        curve.push({date: t.date, equity});
+    });
+
+    // ✅ DAILY RETURNS (for Sharpe)
+    let dailyMap = {};
+
+    curve.forEach(p=>{
+        let d = new Date(p.date).toDateString();
+        dailyMap[d] = p.equity;
+    });
+
+    let dailyValues = Object.values(dailyMap);
+
+    let returns = [];
+    for(let i=1;i<dailyValues.length;i++){
+        let r = (dailyValues[i] - dailyValues[i-1]) / dailyValues[i-1];
+        if(isFinite(r)) returns.push(r);
+    }
+
+    // Sharpe (simple, no risk-free rate)
+    let avg = returns.reduce((a,b)=>a+b,0) / returns.length || 0;
+    let std = Math.sqrt(returns.map(r=>Math.pow(r-avg,2)).reduce((a,b)=>a+b,0)/returns.length) || 1;
+
+    let sharpeVal = (avg / std) * Math.sqrt(252);
+
+    sharpe.innerText = `Sharpe: ${sharpeVal.toFixed(2)}`;
+
+    // ✅ 1 YEAR RETURN
+    let now = Date.now();
+    let oneYearAgo = now - (365 * 24 * 60 * 60 * 1000);
+
+    let past = curve.find(p => p.date >= oneYearAgo);
+    let latest = curve[curve.length - 1];
+
+    let returnPct = past && latest
+        ? ((latest.equity - past.equity) / past.equity) * 100
+        : 0;
+
+    returnEl.innerText = `1Y Return: ${returnPct.toFixed(2)}%`;
 }
 
 // 🔥 CHART (GLOBAL FIX)
@@ -310,6 +388,8 @@ window.drawChart = function(){
         }
     });
 };
+
+calculateMetrics();
 
 </script>
 </body>
