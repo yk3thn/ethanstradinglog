@@ -19,7 +19,6 @@ body { background:#0e0e0e; color:#e0e0e0; font-family:'Cascadia Code', monospace
 input,select { padding:10px; border-radius:6px; border:1px solid #333; background:#111; color:white;}
 .add-btn { grid-column:span 4; background:#4CAF50; border:none; padding:12px; cursor:pointer;}
 .balance-btn { grid-column:span 4; background:#2196F3; border:none; padding:12px; cursor:pointer;}
-.delete-btn { background:#2a2a2a; color:#ff5252; border:1px solid #444; padding:6px 10px; cursor:pointer;}
 canvas { height:400px !important;}
 </style>
 </head>
@@ -46,17 +45,14 @@ canvas { height:400px !important;}
 
 <button class="add-btn" onclick="addTrade()">Add Trade</button>
 
-<!-- 🔥 NEW -->
-<input id="balanceAmount" type="number" placeholder="Amount (+ deposit / - withdraw)">
+<input id="balanceAmount" type="number" placeholder="Deposit / Withdraw">
 <button class="balance-btn" onclick="addBalance()">Add Balance</button>
 
 </div>
 </div>
 
 <div class="card">
-<table>
-<tbody id="tradeTable"></tbody>
-</table>
+<table><tbody id="tradeTable"></tbody></table>
 </div>
 
 </div>
@@ -113,7 +109,6 @@ let t=d.data(); t.id=d.id; trades.push(t);
 render();
 }
 
-// 🔥 ADD TRADE
 window.addTrade=async()=>{
 let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
 
@@ -121,10 +116,6 @@ let pnl=(+exit.value - +entry.value) * +qty.value;
 
 await addDoc(collection(db,"trades"),{
 type:"trade",
-ticker:ticker.value,
-entry:+entry.value,
-exit:+exit.value,
-qty:+qty.value,
 pnl,
 date:ts
 });
@@ -132,7 +123,6 @@ date:ts
 loadTrades();
 };
 
-// 🔥 ADD BALANCE
 window.addBalance=async()=>{
 let ts=(date.value&&time.value)?new Date(date.value+"T"+time.value).getTime():Date.now();
 
@@ -157,9 +147,7 @@ loadTrades();
 function render(){
 tradeTable.innerHTML="";
 trades.sort((a,b)=>a.date-b.date).forEach(t=>{
-
-let label = t.type==="balance" ? "💰 Balance" : t.ticker;
-
+let label=t.type==="balance"?"💰 Balance":"Trade";
 tradeTable.innerHTML+=`
 <tr>
 <td>${label}</td>
@@ -171,20 +159,78 @@ tradeTable.innerHTML+=`
 drawChart();
 }
 
+// 🔥 FIXED ENGINE
 window.drawChart=function(){
 
 if(chart) chart.destroy();
 if(trades.length===0) return;
 
+let mode=interval.value;
 let sorted=[...trades].sort((a,b)=>a.date-b.date);
 
-let labels=[],values=[],equity=0;
+let labels=[],values=[];
 
-sorted.forEach((t,i)=>{
-equity+=t.pnl;
-labels.push(i);
-values.push(equity);
+// 🔥 PRE-COMPUTE TRUE EQUITY CURVE
+let running=0;
+let timeline=[];
+
+sorted.forEach(t=>{
+running+=t.pnl;
+timeline.push({time:t.date, equity:running});
 });
+
+if(mode==="trade"){
+labels = timeline.map((_,i)=>"T"+(i+1));
+values = timeline.map(p=>p.equity);
+}
+
+// 🔥 HOURLY FIX
+if(mode==="hour"){
+let selected=hourFilter.value;
+if(!selected) return;
+
+let start=new Date(selected+"T00:00:00").getTime();
+
+for(let h=0;h<24;h++){
+let t=start+h*3600000;
+
+let val=0;
+for(let i=0;i<timeline.length;i++){
+if(timeline[i].time<=t) val=timeline[i].equity;
+}
+
+labels.push(h+":00");
+values.push(val);
+}
+}
+
+// 🔥 DAY/WEEK/MONTH USE SAME ENGINE
+function bucket(ms){
+if(mode==="day") return new Date(ms).toISOString().slice(0,10);
+if(mode==="week"){
+let d=new Date(ms);
+d.setDate(d.getDate()-d.getDay());
+return d.toISOString().slice(0,10);
+}
+if(mode==="month"){
+let d=new Date(ms);
+return d.getFullYear()+"-"+(d.getMonth()+1);
+}
+}
+
+if(mode==="day"||mode==="week"||mode==="month"){
+let seen={};
+
+timeline.forEach(p=>{
+let key=bucket(p.time);
+seen[key]=p.equity;
+});
+
+Object.keys(seen).sort().forEach(k=>{
+labels.push(k);
+values.push(seen[k]);
+});
+}
 
 chart=new Chart(document.getElementById("chart"),{
 type:"line",
@@ -202,8 +248,8 @@ options:{
 interaction:{mode:'index',intersect:false},
 plugins:{legend:{display:false}},
 scales:{
-x:{ticks:{color:"#aaa"}},
-y:{ticks:{color:"#aaa",callback:v=>"$"+v}}
+x:{ticks:{color:"#aaa"},grid:{color:"#222"}},
+y:{ticks:{color:"#aaa",callback:v=>"$"+v},grid:{color:"#222"}}
 }
 }
 });
