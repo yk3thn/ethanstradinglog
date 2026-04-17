@@ -207,20 +207,56 @@ function drawChart(){
 
 if(chart) chart.destroy();
 
-let labels=[],values=[],eq=0;
+let mode = document.getElementById("timeframe").value;
+let sorted = [...trades].sort((a,b)=>a.date-b.date);
 
-trades.sort((a,b)=>a.date-b.date).forEach((t,i)=>{
-eq+=t.pnl;
-labels.push(i);
-values.push(eq);
-});
+let labels=[];
+let values=[];
+let eq=0;
 
+// 🔥 PER TRADE (unchanged behavior)
+if(mode==="trade"){
+    sorted.forEach((t,i)=>{
+        eq+=t.pnl;
+        labels.push(i);
+        values.push(eq);
+    });
+}
+
+// 🔥 TIMEFRAME FIX (THIS is the patch)
+else{
+    let map = {};
+
+    sorted.forEach(t=>{
+        let d = new Date(t.date);
+        let key;
+
+        if(mode==="hour") key = d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate()+" "+d.getHours();
+        if(mode==="day") key = d.toDateString();
+        if(mode==="week"){
+            d.setDate(d.getDate()-d.getDay());
+            key = d.toDateString();
+        }
+        if(mode==="month") key = d.getFullYear()+"-"+d.getMonth();
+
+        map[key] = (map[key] || 0) + t.pnl;
+    });
+
+    eq = 0;
+
+    Object.keys(map).sort().forEach(k=>{
+        eq += map[k];
+        labels.push(k);
+        values.push(eq);
+    });
+}
+
+// 🔥 SAME chart as before
 chart=new Chart(document.getElementById("chart"),{
 type:"line",
 data:{
 labels:labels,
 datasets:[{
-label:"Equity",
 data:values,
 borderColor:"#4CAF50"
 }]
@@ -228,15 +264,9 @@ borderColor:"#4CAF50"
 options:{
 interaction:{mode:'index',intersect:false},
 plugins:{
-legend:{display:false},
-tooltip:{enabled:true},
 zoom:{
-pan:{enabled:true, mode:'x'},
-zoom:{
-wheel:{enabled:true},
-pinch:{enabled:true},
-mode:'x'
-}
+pan:{enabled:true,mode:'x'},
+zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x'}
 }
 }
 }
