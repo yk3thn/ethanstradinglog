@@ -19,6 +19,7 @@ input { font-size:25px; padding:10px; border-radius:6px; border:1px solid #333; 
 .add-btn { grid-column:span 4; background:#4CAF50; border:none; padding:12px; cursor:pointer; color:white;}
 .del-btn { grid-column:span 4; background:#d63636; border:none; padding:12px; cursor:pointer; color:white;}
 .balance-btn { grid-column:span 4; background:#2196F3; border:none; padding:12px; cursor:pointer; color:white;}
+.tf {font-size:25px; padding:10px; border-radius:6px; border:1px solid #333; background:#111; color:white;}
 canvas { height:400px !important;}
 
 #googleSignInBtn {
@@ -80,7 +81,7 @@ canvas { height:400px !important;}
 <div id="analytics" class="page">
 <div class="card">
 
-<select id="timeframe" onchange="drawChart()">
+<select class="tf" id="timeframe" onchange="drawChart()">
 <option value="trade">Per Trade</option>
 <option value="hour">Hourly</option>
 <option value="day">Daily</option>
